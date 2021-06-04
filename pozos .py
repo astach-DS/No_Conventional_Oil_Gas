@@ -12,6 +12,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+import plotly.graph_objects as go
 
 app = dash.Dash(__name__,external_stylesheets=[dbc.themes.SLATE],suppress_callback_exceptions=True)
 
@@ -66,7 +67,7 @@ sidebar = dbc.Card([
                         pills=True,
                     )
                 ])
-            ],style={'height':'100vh','width':'20rem'})
+            ],style={'height':'101vh','width':'20rem'})
     
         
 
@@ -86,27 +87,27 @@ content = dbc.Container([
             dcc.Dropdown(id="slct_empresa",
                  options=[{'label':empresa,'value':empresa} for empresa in empresas],
                  multi=False,
-                 value='SHELL ARGENTINA S.A.',
-                 style={'width': "65%"}
+                 value='PLUSPETROL S.A.',
+                 style={'width':'20rem','color':'#272B30','background-color':'#515960'}
                  ),
             # Bar plot - Wells drilled by company by year
-            dcc.Graph(id='wells_per_year')    
+            dcc.Graph(id='wells_per_year',style={'height':'39vh'})    
         ],xs=6, sm=6, md=6, lg=6, xl=6),#width={'size':6,'offset':0, 'order':1}),#size of columns, ofset is how many columns from the left de object starts, order is which object shows first
 
         # Card - Pozos Perforados
         dbc.Col([
             dbc.Card([
-                dbc.CardHeader(html.H5(id='pozos-perforados', children="Pozos Perforados",className = 'text-center')),
+                dbc.CardHeader(html.H5(id='pozos-perforados', children="Pozos Perforados",className = 'text-center',style={'color': '#F2F5ED'})),
                 dbc.CardBody([
-                        html.H5(id='pozos-petroleo',children="Pozos de Petróleo", className="card-title"),
-                        html.H5(id='pozos-gas',children="Pozos de Gas", className="card-title")
+                        html.H5(id='pozos-petroleo',children="Pozos de Petróleo", className="card-title, text-center",style={'color': '#00CC96'}),
+                        html.H5(id='pozos-gas',children="Pozos de Gas", className="card-title, text-center",style={'color': '#EF553B'})
                         
                 ])
             ]),
             # Card Graph
             dbc.Card([
                     dbc.CardBody([
-                        dcc.Graph(id='formaciones-graph',style={"height": "100%", "width": "100%"})#'height':'23vh' })
+                        dcc.Graph(id='pie-chart',style={"height": "100%", "width": "100%"})#'height':'23vh' })
                         
                 ])
             ],style={'height':'26vh'}),
@@ -115,19 +116,19 @@ content = dbc.Container([
         # Card - Produccion
         dbc.Col([
             dbc.Card([
-                dbc.CardHeader(html.H5("Producción",className = 'text-center')),
+                dbc.CardHeader(html.H5("Producción",className = 'text-center',style={'color': '#F2F5ED'})),
                 dbc.CardBody([
-                    html.H5(id='produccion-petroleo',children="Producción Petróleo", className="card-title"),
-                    html.H5(id='produccion-gas',children="Producción Gas", className="card-title")
+                    html.H5(id='produccion-petroleo',children="", className="card-title text-center",style={'color': '#00CC96'}),
+                    html.H5(id='produccion-gas',children="", className="card-title text-center",style={'color': '#EF553B'})
                     
                 ])
-            ]),
+            ],style={'height':'12vh'}),
             dbc.Card([
-                dbc.CardBody([
-                    dbc.CardHeader("Producción Gas")
-                    
+                    dbc.CardBody([
+                        dcc.Graph(id='formaciones-graph',style={"height": "100%", "width": "100%"})#'height':'23vh' })
+                        
                 ])
-            ])
+            ],style={'height':'26vh'})
         ],width=3)               
     
     
@@ -139,11 +140,12 @@ content = dbc.Container([
         dbc.Col([
             
             html.H6('Select Oil Well', style={'textDecoration':'underline'}),
+            
             # Select oil well dropdown
             dcc.Dropdown(
                         id='slct_oil_well',
                         multi=True,
-                        style={'width': "50%"}
+                        style={'width':'20rem','color':'#272B30','background-color':'#515960'}
             ),
             
             # Oil checklist
@@ -153,12 +155,12 @@ content = dbc.Container([
                     {'label': 'Filtrar por trayectoria', 'value': 'trayectoria'}
                 ],
                 value = ['todos'],
-                labelStyle={"display": "inline-block"}, #labelStyle = dict(display='block'),
+                labelStyle={"display": "inline-block",'padding':'0.2rem'}, #labelStyle = dict(display='block'),
                 className='mt-2'
                
             ),
             # Oil producion line-graph
-            dcc.Graph(id='wellprod')
+            dcc.Graph(id='wellprod',style={'height':'40vh'})
         ],xs=6, sm=6, md=6, lg=6, xl=6 ),#width = 6 ), #xs=6, sm=6, md=6, lg=6, xl=6),#width={'size':6})
         
         # GAS production column component
@@ -166,11 +168,12 @@ content = dbc.Container([
             html.H6(
                 'Select Gas Well', style={'textDecoration':'underline'}
             ),
+            
             # Select gas well dropdown 
             dcc.Dropdown(
                         id='slct_gas_well',
                         multi=True,
-                        style={'width': "50%"}
+                        style={'width':'20rem','color':'#272B30','background-color':'#515960'}
             ),
             # Gas checklist
             dcc.Checklist(id = 'gas_graph_config',
@@ -179,12 +182,12 @@ content = dbc.Container([
                     {'label': 'Filtrar por trayectoria', 'value': 'trayectoria'}
                 ],
                 value = ['todos'],
-                labelStyle={"display": "inline-block"}, #labelStyle = dict(display='block'),
+                labelStyle={"display": "inline-block",'padding':'0.2rem'}, #labelStyle = dict(display='block'),
                 className='mt-2'
                
             ),
             # Gas production line-graph
-            dcc.Graph(id='gas_prod')
+            dcc.Graph(id='gas_prod',style={'height':'40vh'})
 
         ],xs=6, sm=6, md=6, lg=6, xl=6 )
             
@@ -210,7 +213,7 @@ app.layout = dbc.Container([
 #                                   App Callbacks
 # ------------------------------------------------------------------------------
 
-# Wells drilled Graph
+# Drilled Wells Callback
 @app.callback(
 Output(component_id='wells_per_year', component_property='figure'),
     Input(component_id='slct_empresa', component_property='value')
@@ -222,16 +225,17 @@ def update_graph(option_slctd):
     dff = dff[dff["empresa"] == option_slctd]
     
 
-    # Plotly Express
-    fig = px.bar(dff, x='año_inicio_perf', y='sigla',color='trayectoria')
+    # Drilled Wells Graph
+    fig = px.bar(dff, x='año_inicio_perf', y='sigla',color='trayectoria',color_discrete_sequence=["#FF6692","#A8B9C8",'#1DC4E0'])
     fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
             paper_bgcolor= 'rgba(0, 0, 0, 0)',
             title = {'text':'Pozos Perforados por Año','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
             xaxis_title = 'Años',
-            yaxis_title = 'Cantidad de Pozos'
+            yaxis_title = 'Cantidad de Pozos',
         )
+    
 
     return  fig
 
@@ -241,7 +245,8 @@ def update_graph(option_slctd):
     Output('pozos-petroleo','children'),
     Output('pozos-gas','children'),
     Output('produccion-petroleo','children'),
-    Output('produccion-gas','children')],
+    Output('produccion-gas','children'),
+    Output('pie-chart','figure')],
     Input('slct_empresa','value')
 )
 def update_card_values(company_selected):
@@ -259,6 +264,22 @@ def update_card_values(company_selected):
     n_pozos_totales = n_pozos_gas + n_pozos_petroleo
     pozos_totales = f'Pozos Totales: {n_pozos_totales}'
     
+    #Pie-Chart
+    labels = ['Pozos Petroleo','Pozos Gas']
+    values = [n_pozos_petroleo,n_pozos_gas]
+    fig = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.45)])
+    fig.update_layout(
+            template='plotly_dark',
+            plot_bgcolor= 'rgba(0, 0, 0, 0)',
+            paper_bgcolor= 'rgba(0, 0, 0, 0)',
+            #title = {'text':'Pozos Perforados por Año','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+            showlegend=False,
+            margin=dict(l=30, r=30, t=30, b=30),
+            )
+    fig.update_traces(marker=dict(colors=('#00BF8C','#EF553C')))
+    
+    
+    
     # Producción Petróleo
     dff = oil_prod.copy()
     dff_g = dff.groupby(['empresa','sigla'],as_index=False).aggregate({'net_oil_prod':'max','net_gas_prod':'max'})
@@ -275,12 +296,16 @@ def update_card_values(company_selected):
     net_gas_gasDf = dff_gg.loc[company_selected,'net_gas_prod']
 
     produccion_gas = np.round(int(net_gas_oilDf  + net_gas_gasDf)/1000000,2)
-    produccion_gas = f'Producción Gas: {produccion_gas} Mm3'
+    produccion_gas = f'Gas: {produccion_gas} Mm3'
     produccion_petroleo = np.round(int(net_oil_oilDf + net_oil_gasDf)/1000000,2)
-    produccion_petroleo = f'Producción Petróleo: {produccion_petroleo} Mm3'
+    produccion_petroleo = f'Petróleo: {produccion_petroleo} Mm3'
 
     
-    return pozos_totales , pozos_petroleo , pozos_gas , produccion_petroleo, produccion_gas
+    
+            
+        
+    
+    return pozos_totales , pozos_petroleo , pozos_gas , produccion_petroleo, produccion_gas,fig
 
 
 
@@ -293,10 +318,14 @@ Output(component_id='formaciones-graph', component_property='figure'),
 def update_formation_graph(selected_company):
     dff = df.copy()
     dff = dff[dff['empresa']== selected_company]
-    df_formaciones = dff['formacion'].value_counts()[:5].to_frame()
-    df_formaciones = df_formaciones.sort_values(by='formacion',ascending=True)
-
-    fig = px.bar(df_formaciones,orientation='h')
+    dff= dff[dff['tipopozo'].isin(['Petrolífero','Gasífero'])]
+    top5_form = dff['formacion'].value_counts()[:5]
+    top5_form = top5_form.index.to_list()
+    dff_g = dff.groupby(['empresa','formacion','tipopozo'],as_index=False).aggregate({'sigla':'count'})
+    dff_g = dff_g[dff_g['formacion'].isin(top5_form)]
+    dff_g = dff_g.sort_values(by=['formacion','sigla'],ascending = False)
+    
+    fig = px.bar(dff_g,x='sigla', y='formacion',orientation='h',color='tipopozo',color_discrete_map={"Gasífero": "#EF553C" ,"Petrolífero":"#00BF8C"})
     fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
@@ -337,7 +366,6 @@ def wells_options(selected_company):
 
 def well_prod(well_selected,graph_config,selected_company):
     if 'todos' in graph_config:
-        print('hola')
         dff = oil_prod.copy()
         dff = dff[dff['empresa'] == selected_company]
         fig = px.line(dff, x="meses_prod", y="net_oil_prod",color='sigla',title='Net Oil Production')
@@ -361,7 +389,7 @@ def well_prod(well_selected,graph_config,selected_company):
             paper_bgcolor= 'rgba(0, 0, 0, 0)',
             title = {'text':'Producción de Petróleo','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
             xaxis_title = 'Meses',
-            yaxis_title = 'Acumulada Petróleo [m3]'
+            yaxis_title = 'Acumulada Petróleo [m3]',
         )
 
         
@@ -378,7 +406,6 @@ def well_prod(well_selected,graph_config,selected_company):
 
 def gas_well_prod(well_selected,graph_config,selected_company):
     if 'todos' in graph_config:
-        print('hola')
         dff = gas_prod.copy()
         dff = dff[dff['empresa'] == selected_company]
         fig = px.line(dff, x="meses_prod", y="net_gas_prod",color='sigla',title='Net Gas Production')

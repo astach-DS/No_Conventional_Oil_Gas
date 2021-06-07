@@ -1,3 +1,5 @@
+from dash.exceptions import PreventUpdate
+from pandas.core.frame import DataFrame
 from dash_bootstrap_components._components.Col import Col
 from dash_bootstrap_components._components.Row import Row
 from dash_core_components.Graph import Graph
@@ -19,8 +21,12 @@ app = dash.Dash(__name__,external_stylesheets=[dbc.themes.SLATE],suppress_callba
 # ---------- Import and clean data (importing csv into pandas)
 
 # Mains csvs
-df = pd.read_csv(r"C:\Users\iory2\Desktop\Programing\A-DASH\Unconventional\info_pozos.csv")
-produ = pd.read_csv(r"C:\Users\iory2\Desktop\Programing\A-DASH\Unconventional\produ.csv")
+df = pd.read_csv(r"C:\Users\Juli\Documents\Programing\Unconventional_Oil_Gas\info_pozos.csv")
+produ = pd.read_csv(r"C:\Users\Juli\Documents\Programing\Unconventional_Oil_Gas\produ.csv")
+# Esto lo hago aca pero tengo que hacerlo en Produccion.ipynb
+pozos_convencionales = df[df['tipo_recurso']=='CONVENCIONAL']['sigla'].to_list()
+df=df[-df['sigla'].isin(pozos_convencionales)]
+produ=produ[-produ['sigla'].isin(pozos_convencionales)]
 # Subsets per well type
 df_oil = df[df['tipopozo'] == 'Petrolífero']
 df_gas = df[df['tipopozo'] == 'Gasífero']
@@ -58,14 +64,16 @@ sidebar = dbc.Card([
                 dbc.CardBody([
                     html.H2("Menu", className="display-4 text-center"),
                     html.Hr(),
-                        dbc.Nav([
-                        dbc.NavLink("Home", href="/", active="exact",className='mb-1 text-center'),
-                        dbc.NavLink("Pronóstico Petróleo", href="/page-1", active="exact",className='mb-1 text-center'),
-                        dbc.NavLink("Fracturas", href="/page-2", active="exact",className='text-center'),
-                        ],
-                        vertical=True,
-                        pills=True,
-                    )
+                    dbc.Nav([
+                    dbc.NavLink("Home", href="/", active="exact",className='mb-1 text-center'),
+                    dbc.NavLink("Pronóstico Petróleo", href="/page-1", active="exact",className='mb-1 text-center'),
+                    dbc.NavLink("Fracturas", href="/page-2", active="exact",className='text-center'),
+                    ],vertical=True,pills=True),
+                    dcc.Dropdown(id='select_recurso',
+                                options=[{'label':recurso,'value':recurso} for recurso in df['sub_tipo_recurso'].unique()],
+                                value= ''),
+                    dcc.Store(id='memory_recurso')
+                
                 ])
             ],style={'height':'101vh','width':'20rem'})
     
@@ -95,6 +103,7 @@ content = dbc.Container([
         ],xs=6, sm=6, md=6, lg=6, xl=6),#width={'size':6,'offset':0, 'order':1}),#size of columns, ofset is how many columns from the left de object starts, order is which object shows first
 
         # Card - Pozos Perforados
+    
         dbc.Col([
             dbc.Card([
                 dbc.CardHeader(html.H5(id='pozos-perforados', children="Pozos Perforados",className = 'text-center',style={'color': '#F2F5ED'})),
@@ -122,7 +131,7 @@ content = dbc.Container([
                     html.H5(id='produccion-gas',children="", className="card-title text-center",style={'color': '#EF553B'})
                     
                 ])
-            ],style={'height':'12vh'}),
+            ],style={'height':'15vh'}),
             dbc.Card([
                     dbc.CardBody([
                         dcc.Graph(id='formaciones-graph',style={"height": "100%", "width": "100%"})#'height':'23vh' })
@@ -213,13 +222,28 @@ app.layout = dbc.Container([
 #                                   App Callbacks
 # ------------------------------------------------------------------------------
 
+#Tight or Shale Dropdown Callback
+@app.callback(
+    Output('memory_recurso','data'),
+    Input('select_recurso','value')
+)
+def filter_tigh_shale(recurso_selected):
+    if not recurso_selected:
+        return df.to_dict()
+    
+    filtered = df[df['sub_tipo_recurso']== recurso_selected]
+    return filtered.to_dict()
+
 # Drilled Wells Callback
 @app.callback(
 Output(component_id='wells_per_year', component_property='figure'),
-    Input(component_id='slct_empresa', component_property='value')
+    [Input('memory_recurso','data'),
+    Input(component_id='slct_empresa', component_property='value')]
 )
-def update_graph(option_slctd):
-    dff = df.copy()
+def update_graph(data,option_slctd):
+    if data is None:
+        raise PreventUpdate
+    dff = pd.DataFrame.from_dict(data)
     dff = dff.groupby(['empresa','año_inicio_perf','trayectoria']).aggregate({'sigla':'count'})
     dff.reset_index(inplace=True)    
     dff = dff[dff["empresa"] == option_slctd]

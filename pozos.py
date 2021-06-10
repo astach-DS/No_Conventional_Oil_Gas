@@ -18,15 +18,17 @@ import plotly.graph_objects as go
 
 app = dash.Dash(__name__,external_stylesheets=[dbc.themes.SLATE],suppress_callback_exceptions=True)
 
-# ---------- Import and clean data (importing csv into pandas)
+#----------------------------------------------------------------------------------------
+# DATA
+#----------------------------------------------------------------------------------------
 
 # Mains csvs
-df = pd.read_csv("info_pozos.csv")
-produ = pd.read_csv("produ.csv")
+df = pd.read_csv(r"Unconventional_Oil_Gas\Data\info_pozos.csv")
+produ = pd.read_csv(r"Unconventional_Oil_Gas\Data\produ.csv")
 # Esto lo hago aca pero tengo que hacerlo en Produccion.ipynb
-pozos_convencionales = df[df['tipo_recurso']=='CONVENCIONAL']['sigla'].to_list()
+""" pozos_convencionales = df[df['tipo_recurso']=='CONVENCIONAL']['sigla'].to_list()
 df=df[-df['sigla'].isin(pozos_convencionales)]
-produ=produ[-produ['sigla'].isin(pozos_convencionales)]
+produ=produ[-produ['sigla'].isin(pozos_convencionales)] """
 # Subsets per well type
 df_oil = df[df['tipopozo'] == 'Petrolífero']
 df_gas = df[df['tipopozo'] == 'Gasífero']
@@ -59,26 +61,37 @@ CONTENT_STYLE = {
     "margin-right": "2rem",
     "padding": "2rem 1rem",
 } """
-#----------------------
+#----------------------------------------------------------------------------------------
+# SIDEBAR
+#----------------------------------------------------------------------------------------
+
 sidebar = dbc.Card([
                 dbc.CardBody([
                     html.H2("Menu", className="display-4 text-center"),
                     html.Hr(),
+                    
                     dbc.Nav([
                     dbc.NavLink("Home", href="/", active="exact",className='mb-1 text-center'),
                     dbc.NavLink("Pronóstico Petróleo", href="/page-1", active="exact",className='mb-1 text-center'),
                     dbc.NavLink("Fracturas", href="/page-2", active="exact",className='text-center'),
                     ],vertical=True,pills=True),
-                    dcc.Dropdown(id='select_recurso',
-                                options=[{'label':recurso,'value':recurso} for recurso in df['sub_tipo_recurso'].unique()],
-                                value= ''),
+                    
+                    # Subtipo recurso dropdwon
+                    dcc.Dropdown(
+                        id='select_recurso',
+                        style={'color':'#272B30','background-color':'#515960'},
+                        className='mt-4'
+                    ),
+                    # Memory recurso store
                     dcc.Store(id='memory_recurso')
                 
                 ])
             ],style={'height':'101vh','width':'20rem'})
-    
-        
 
+#----------------------------------------------------------------------------------------
+# CONTEINER
+#----------------------------------------------------------------------------------------
+   
 content = dbc.Container([
     # First row - title
     dbc.Row([
@@ -86,6 +99,11 @@ content = dbc.Container([
                         className='text-center mb-4'),
                 width=12)        
     ],className='mb-4 mt-4'),
+    
+    #---------------------------------------------------------------------------------------
+    # WELLS DRILLED BY YEAR GRAPH AND DROPDOWN
+    #---------------------------------------------------------------------------------------
+    
     # Second row - Wells per company
     dbc.Row([
         # Wells drilled per company per year column component
@@ -102,6 +120,10 @@ content = dbc.Container([
             dcc.Graph(id='wells_per_year',style={'height':'39vh'})    
         ],xs=6, sm=6, md=6, lg=6, xl=6),#width={'size':6,'offset':0, 'order':1}),#size of columns, ofset is how many columns from the left de object starts, order is which object shows first
 
+    #----------------------------------------------------------------------------------------
+    # CARDS
+    #----------------------------------------------------------------------------------------
+        
         # Card - Pozos Perforados
     
         dbc.Col([
@@ -113,7 +135,7 @@ content = dbc.Container([
                         
                 ])
             ]),
-            # Card Graph
+            # Card Pie Chart Graph
             dbc.Card([
                     dbc.CardBody([
                         dcc.Graph(id='pie-chart',style={"height": "100%", "width": "100%"})#'height':'23vh' })
@@ -122,7 +144,7 @@ content = dbc.Container([
             ],style={'height':'26vh'}),
         ],width=3),
         
-        # Card - Produccion
+        # Card -  Numero Pozos 
         dbc.Col([
             dbc.Card([
                 dbc.CardHeader(html.H5("Producción",className = 'text-center',style={'color': '#F2F5ED'})),
@@ -132,6 +154,7 @@ content = dbc.Container([
                     
                 ])
             ],style={'height':'15vh'}),
+            # Card Bar Chart Formaciones
             dbc.Card([
                     dbc.CardBody([
                         dcc.Graph(id='formaciones-graph',style={"height": "100%", "width": "100%"})#'height':'23vh' })
@@ -143,8 +166,13 @@ content = dbc.Container([
     
     ],no_gutters=False,justify='start'), # no_gutters False make a space between de columns,
                                           # justify: start,center,end,between, around
+    #----------------------------------------------------------------------------------------
+    # PRODUCCION GAS OIL PER WELL 
+    #----------------------------------------------------------------------------------------
+    
     # Second row
     dbc.Row([
+        
         # Oil production column component
         dbc.Col([
             
@@ -171,6 +199,7 @@ content = dbc.Container([
             # Oil producion line-graph
             dcc.Graph(id='wellprod',style={'height':'40vh'})
         ],xs=6, sm=6, md=6, lg=6, xl=6 ),#width = 6 ), #xs=6, sm=6, md=6, lg=6, xl=6),#width={'size':6})
+        
         
         # GAS production column component
         dbc.Col([
@@ -205,12 +234,10 @@ content = dbc.Container([
 ],fluid=True,style={'width': "80%"})
 
 
-
-
-
-# ------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #                                   App layout
 # -----------------------------------------------------------------------------
+
 app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(sidebar,xs=2, sm=2, md=2, lg=2, xl=2),#width=2),
@@ -222,7 +249,20 @@ app.layout = dbc.Container([
 #                                   App Callbacks
 # ------------------------------------------------------------------------------
 
-#Tight or Shale Dropdown Callback
+@app.callback(
+    Output('select_recurso','options'),
+    Input('slct_empresa','value')
+)
+
+def tigt_shale_filter(option_slctd):
+    dff=df.copy()
+    dff = dff[dff['empresa'] == option_slctd]
+    sub_tipos = dff['sub_tipo_recurso'].unique()
+    return [{'label':sub_tipo_recurso,'value':sub_tipo_recurso} for sub_tipo_recurso in sub_tipos]
+
+
+
+#Tight or Shale data FILTER Dropdown Callback
 @app.callback(
     Output('memory_recurso','data'),
     Input('select_recurso','value')
@@ -240,6 +280,7 @@ Output(component_id='wells_per_year', component_property='figure'),
     [Input('memory_recurso','data'),
     Input(component_id='slct_empresa', component_property='value')]
 )
+# Filtro por Tight | Gas option_slctd
 def update_graph(data,option_slctd):
     if data is None:
         raise PreventUpdate
@@ -263,6 +304,10 @@ def update_graph(data,option_slctd):
 
     return  fig
 
+#----------------------------------------------------------------------------------------
+# CARDS CALLBACKS
+#----------------------------------------------------------------------------------------
+
 # Card Values callback
 @app.callback(
     [Output('pozos-perforados','children'),
@@ -271,14 +316,21 @@ def update_graph(data,option_slctd):
     Output('produccion-petroleo','children'),
     Output('produccion-gas','children'),
     Output('pie-chart','figure')],
-    Input('slct_empresa','value')
+    [Input('memory_recurso','data'),
+    Input('slct_empresa','value')]
 )
-def update_card_values(company_selected):
+def update_card_values(data_sub_tipo,company_selected):
     # Total Pozos petroleo
-    dff = df_oil.copy()
-    dff_g = dff.groupby('empresa').aggregate({'sigla':'count'})
-    n_pozos_petroleo = dff_g.loc[company_selected,'sigla']
+    #if data_sub_tipo is None:
+        #raise PreventUpdate
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == company_selected]
+    dff = dff[dff['tipopozo'] == 'Petrolífero']
+    n_pozos_petroleo = dff.shape[0]
     pozos_petroleo = f'Pozos Petróleros: {n_pozos_petroleo}'
+    
+ 
+    
     # Total Pozos Gas
     dff = df_gas.copy()
     dff_g = dff.groupby('empresa').aggregate({'sigla':'count'})
@@ -319,21 +371,14 @@ def update_card_values(company_selected):
     net_oil_gasDf = dff_gg.loc[company_selected,'net_oil_prod']
     net_gas_gasDf = dff_gg.loc[company_selected,'net_gas_prod']
 
-    produccion_gas = np.round(int(net_gas_oilDf  + net_gas_gasDf)/1000000,2)
+    produccion_gas = np.round(int(net_gas_oilDf  + net_gas_gasDf)/1000,2)
     produccion_gas = f'Gas: {produccion_gas} Mm3'
     produccion_petroleo = np.round(int(net_oil_oilDf + net_oil_gasDf)/1000000,2)
     produccion_petroleo = f'Petróleo: {produccion_petroleo} Mm3'
 
-    
-    
-            
-        
-    
     return pozos_totales , pozos_petroleo , pozos_gas , produccion_petroleo, produccion_gas,fig
 
-
-
-# Productive Formations Graph
+# Card Productive Formations Graph
 @app.callback(
 Output(component_id='formaciones-graph', component_property='figure'),
     Input(component_id='slct_empresa', component_property='value')
@@ -363,6 +408,10 @@ def update_formation_graph(selected_company):
         )
     
     return fig
+
+#----------------------------------------------------------------------------------------
+# OIl GAS PER WELL PRODUCTION CALLBACKS
+#----------------------------------------------------------------------------------------
 
 # Wells Dropdown selection
 @app.callback(
@@ -419,7 +468,6 @@ def well_prod(well_selected,graph_config,selected_company):
         
         return fig
 
-
 # Gas Production graph
 @app.callback(
     Output('gas_prod','figure'),
@@ -441,9 +489,7 @@ def gas_well_prod(well_selected,graph_config,selected_company):
             xaxis_title = 'Meses',
             yaxis_title = 'Acumulada Gas [m3?]'
         )
-
         return  fig
-    
     else:
         dff = gas_prod.copy()
         dff = dff[dff['sigla'].isin(well_selected)]
@@ -456,18 +502,9 @@ def gas_well_prod(well_selected,graph_config,selected_company):
             xaxis_title = 'Meses',
             yaxis_title = 'Acumulada Gas [m3?]'
         )
-        
         return fig
-
-
 
 # ------------------------------------------------------------------------------
 
-
-
 if __name__ == '__main__':
     app.run_server(debug=True)
-
-
-# TENGO QUE HACER LOS CALLBACKS DEL GRAFICO DE PRODUCCION DE GAS
-# YA HICE LOS OUTPUTS DE: Well Dropdown @app.callback

@@ -23,24 +23,34 @@ app = dash.Dash(__name__,external_stylesheets=[dbc.themes.SLATE],suppress_callba
 #----------------------------------------------------------------------------------------
 
 # Mains csvs
-df = pd.read_csv(r"Unconventional_Oil_Gas\Data\info_pozos.csv")
-produ = pd.read_csv(r"Unconventional_Oil_Gas\Data\produ.csv")
+df = pd.read_csv(r"Data\info_pozos.csv")
+del df['Unnamed: 0']
+produ = pd.read_csv(r"Data\produ.csv")
+pass
+def colores_trayectoria(dff):
+        color_trayectoria={"horizontal": "#FF6692" ,"desviado":"#1DC4E0",'vertical':'#A8B9C8'}
+        trayectorias = dff['trayectoria'].unique()
+        color_discrete_map = {}
+        for trayectoria in trayectorias:
+            color_discrete_map[trayectoria] =color_trayectoria[trayectoria]
+        return color_discrete_map
+
 # Esto lo hago aca pero tengo que hacerlo en Produccion.ipynb
 """ pozos_convencionales = df[df['tipo_recurso']=='CONVENCIONAL']['sigla'].to_list()
 df=df[-df['sigla'].isin(pozos_convencionales)]
 produ=produ[-produ['sigla'].isin(pozos_convencionales)] """
 # Subsets per well type
-df_oil = df[df['tipopozo'] == 'Petrolífero']
-df_gas = df[df['tipopozo'] == 'Gasífero']
+#df_oil = df[df['tipopozo'] == 'Petrolífero']
+#df_gas = df[df['tipopozo'] == 'Gasífero']
 # Oil and gas wells
-oil_wells = df_oil['sigla'].unique()
-gas_wells = df_gas['sigla'].unique()
+#oil_wells = df_oil['sigla'].unique()
+#gas_wells = df_gas['sigla'].unique()
 # Productions for oil and gas wells
-oil_prod = produ[produ['sigla'].isin(oil_wells)]
-gas_prod = produ[produ['sigla'].isin(gas_wells)]
+#oil_prod = produ[produ['sigla'].isin(oil_wells)]
+#gas_prod = produ[produ['sigla'].isin(gas_wells)]
 # Companies
 empresas = df['empresa'].unique()
-all_wells = df[['sigla','empresa']]
+#all_wells = df[['sigla','empresa']]
 
 """ df = df.groupby(['empresa','año_inicio_perf','trayectoria']).aggregate({'sigla':'count'})
 df.reset_index(inplace=True) """
@@ -250,7 +260,8 @@ app.layout = dbc.Container([
 # ------------------------------------------------------------------------------
 
 @app.callback(
-    Output('select_recurso','options'),
+    [Output('select_recurso','options'),
+    Output('select_recurso','value')],
     Input('slct_empresa','value')
 )
 
@@ -258,11 +269,12 @@ def tigt_shale_filter(option_slctd):
     dff=df.copy()
     dff = dff[dff['empresa'] == option_slctd]
     sub_tipos = dff['sub_tipo_recurso'].unique()
-    return [{'label':sub_tipo_recurso,'value':sub_tipo_recurso} for sub_tipo_recurso in sub_tipos]
+    
+    return [{'label':sub_tipo_recurso,'value':sub_tipo_recurso} for sub_tipo_recurso in sub_tipos] , sub_tipos[0]
 
 
 
-#Tight or Shale data FILTER Dropdown Callback
+#Tight or Shale MEMORY data FILTER Dropdown Callback
 @app.callback(
     Output('memory_recurso','data'),
     Input('select_recurso','value')
@@ -276,9 +288,9 @@ def filter_tigh_shale(recurso_selected):
 
 # Drilled Wells Callback
 @app.callback(
-Output(component_id='wells_per_year', component_property='figure'),
+Output('wells_per_year', 'figure'),
     [Input('memory_recurso','data'),
-    Input(component_id='slct_empresa', component_property='value')]
+    Input('slct_empresa', 'value')]
 )
 # Filtro por Tight | Gas option_slctd
 def update_graph(data,option_slctd):
@@ -289,9 +301,8 @@ def update_graph(data,option_slctd):
     dff.reset_index(inplace=True)    
     dff = dff[dff["empresa"] == option_slctd]
     
-
-    # Drilled Wells Graph
-    fig = px.bar(dff, x='año_inicio_perf', y='sigla',color='trayectoria',color_discrete_sequence=["#FF6692","#A8B9C8",'#1DC4E0'])
+    
+    fig = px.bar(dff, x='año_inicio_perf', y='sigla',color='trayectoria',color_discrete_map=colores_trayectoria(dff))
     fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
@@ -319,22 +330,21 @@ def update_graph(data,option_slctd):
     [Input('memory_recurso','data'),
     Input('slct_empresa','value')]
 )
-def update_card_values(data_sub_tipo,company_selected):
+def update_card_values(data_sub_tipo,selected_company):
     # Total Pozos petroleo
-    #if data_sub_tipo is None:
-        #raise PreventUpdate
+    if data_sub_tipo is None:
+        raise PreventUpdate
     dff = pd.DataFrame.from_dict(data_sub_tipo)
-    dff = dff[dff['empresa'] == company_selected]
+    dff = dff[dff['empresa'] == selected_company]
     dff = dff[dff['tipopozo'] == 'Petrolífero']
     n_pozos_petroleo = dff.shape[0]
     pozos_petroleo = f'Pozos Petróleros: {n_pozos_petroleo}'
     
- 
-    
     # Total Pozos Gas
-    dff = df_gas.copy()
-    dff_g = dff.groupby('empresa').aggregate({'sigla':'count'})
-    n_pozos_gas = dff_g.loc[company_selected,'sigla']
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == selected_company]
+    dff = dff[dff['tipopozo'] == 'Gasífero']
+    n_pozos_gas = dff.shape[0]
     pozos_gas = f'Pozos Gasíferos: {n_pozos_gas}'
     # Pozos Totales
     n_pozos_totales = n_pozos_gas + n_pozos_petroleo
@@ -357,21 +367,38 @@ def update_card_values(data_sub_tipo,company_selected):
     
     
     # Producción Petróleo
-    dff = oil_prod.copy()
-    dff_g = dff.groupby(['empresa','sigla'],as_index=False).aggregate({'net_oil_prod':'max','net_gas_prod':'max'})
-    dff_gg = dff_g.groupby('empresa').aggregate({'net_oil_prod':'sum','net_gas_prod':'sum'})
-    # tengo un netoil parcial y un net gas parcial porque oil_prod y gas_prod, tienen produccion tanto de gas como de oil
-    net_oil_oilDf = dff_gg.loc[company_selected,'net_oil_prod']
-    net_gas_oilDf = dff_gg.loc[company_selected,'net_gas_prod']
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == selected_company]
+    dff_oil = dff[dff['tipopozo'] == 'Petrolífero']
+    if dff_oil.empty:
+        net_oil_oilDf = 0
+        net_gas_oilDf = 0
+    else:
+        oil_wells = dff_oil['sigla'].unique()
+        oil_prod = produ[produ['sigla'].isin(oil_wells)]
+        dff_g = oil_prod.groupby(['empresa','sigla'],as_index=False).aggregate({'net_oil_prod':'max','net_gas_prod':'max'})
+        dff_gg = dff_g.groupby('empresa').aggregate({'net_oil_prod':'sum','net_gas_prod':'sum'})
+        # tengo un netoil parcial y un net gas parcial porque oil_prod y gas_prod, tienen produccion tanto de gas como de oil
+        net_oil_oilDf = dff_gg.loc[selected_company,'net_oil_prod']
+        net_gas_oilDf = dff_gg.loc[selected_company,'net_gas_prod']
 
     # Producción Gas
-    dff = gas_prod.copy()
-    dff_g = dff.groupby(['empresa','sigla'],as_index=False).aggregate({'net_oil_prod':'max','net_gas_prod':'max'})
-    dff_gg = dff_g.groupby('empresa').aggregate({'net_oil_prod':'sum','net_gas_prod':'sum'})
-    net_oil_gasDf = dff_gg.loc[company_selected,'net_oil_prod']
-    net_gas_gasDf = dff_gg.loc[company_selected,'net_gas_prod']
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == selected_company]
+    dff_gas = dff[dff['tipopozo'] == 'Gasífero']
+    if dff_gas.empty:
+        net_oil_gasDf = 0
+        net_gas_gasDf = 0
+    else:
+        gas_wells = dff_gas['sigla'].unique()
+        gas_prod = produ[produ['sigla'].isin(gas_wells)]
+        dff_g = gas_prod.groupby(['empresa','sigla'],as_index=False).aggregate({'net_oil_prod':'max','net_gas_prod':'max'})
+        dff_gg = dff_g.groupby('empresa').aggregate({'net_oil_prod':'sum','net_gas_prod':'sum'})
+        net_oil_gasDf = dff_gg.loc[selected_company,'net_oil_prod']
+        net_gas_gasDf = dff_gg.loc[selected_company,'net_gas_prod']
 
-    produccion_gas = np.round(int(net_gas_oilDf  + net_gas_gasDf)/1000,2)
+    # Final values
+    produccion_gas = np.round(int(net_gas_oilDf  + net_gas_gasDf)/1000,0)
     produccion_gas = f'Gas: {produccion_gas} Mm3'
     produccion_petroleo = np.round(int(net_oil_oilDf + net_oil_gasDf)/1000000,2)
     produccion_petroleo = f'Petróleo: {produccion_petroleo} Mm3'
@@ -380,15 +407,20 @@ def update_card_values(data_sub_tipo,company_selected):
 
 # Card Productive Formations Graph
 @app.callback(
-Output(component_id='formaciones-graph', component_property='figure'),
-    Input(component_id='slct_empresa', component_property='value')
+Output('formaciones-graph', 'figure'),
+    [Input('memory_recurso','data'),
+    Input('slct_empresa', 'value')]
 )
 
-def update_formation_graph(selected_company):
-    dff = df.copy()
+def update_formation_graph(data_sub_tipo,selected_company):
+    
+    if data_sub_tipo is None:
+        raise PreventUpdate
+    
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
     dff = dff[dff['empresa']== selected_company]
     dff= dff[dff['tipopozo'].isin(['Petrolífero','Gasífero'])]
-    top5_form = dff['formacion'].value_counts()[:5]
+    top5_form = dff['formacion'].value_counts()[:4]
     top5_form = top5_form.index.to_list()
     dff_g = dff.groupby(['empresa','formacion','tipopozo'],as_index=False).aggregate({'sigla':'count'})
     dff_g = dff_g[dff_g['formacion'].isin(top5_form)]
@@ -417,45 +449,106 @@ def update_formation_graph(selected_company):
 @app.callback(
     [Output('slct_oil_well','options'),
     Output('slct_gas_well','options')],
-    Input('slct_empresa','value')
+    [Input('memory_recurso','data'),
+    Input('slct_empresa','value')]
 )
-def wells_options(selected_company):
-    dff = df_oil.copy()
+def wells_options(data_sub_tipo,selected_company):
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
     dff = dff[dff['empresa'] == selected_company]
-    pozos_unicos_oil = dff['sigla'].to_list()
+    dff_oil = dff[dff['tipopozo'] == 'Petrolífero']
+    pozos_unicos_oil = dff_oil['sigla'].to_list()
 
-    dff = df_gas.copy()
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
     dff = dff[dff['empresa'] == selected_company]
-    pozos_unicos_gas = dff['sigla'].to_list()
+    dff_gas = dff[dff['tipopozo'] == 'Gasífero']
+    pozos_unicos_gas = dff_gas['sigla'].to_list()
     return [{'label':pozo,'value':pozo} for pozo in pozos_unicos_oil], [{'label':pozo,'value':pozo} for pozo in pozos_unicos_gas]
+
+""" @app.callback(
+    Output('graph_config','value'),
+    Input('slct_oil_well','value')
+)
+
+def retro(oil_well_selected):
+    if len(oil_well_selected) >0:
+        return [] """
+
+
 
 # Oil Production graph
 @app.callback(
     Output('wellprod','figure'),
-    [Input('slct_oil_well','value'),
+    [Input('slct_oil_well','options'),
+    Input('memory_recurso','data'),
+    Input('slct_oil_well','value'),
     Input('graph_config','value'),
     Input('slct_empresa','value')]
 )
 
-def well_prod(well_selected,graph_config,selected_company):
-    if 'todos' in graph_config:
-        dff = oil_prod.copy()
-        dff = dff[dff['empresa'] == selected_company]
-        fig = px.line(dff, x="meses_prod", y="net_oil_prod",color='sigla',title='Net Oil Production')
+def well_prod(oil_dropdown_options,data_sub_tipo,well_selected,graph_config,selected_company):
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == selected_company]
+    dff_oil = dff[dff['tipopozo'] == 'Petrolífero']
+    oil_wells = dff_oil['sigla'].unique()
+    oil_prod = produ[produ['sigla'].isin(oil_wells)]
+    # Si no hay pozos petroleros en el dropdown devuelve una figura con la leyenda 'No Data to Display'
+    if not oil_dropdown_options:
+        fig = go.Figure().add_annotation(x=2, y=2,text="No Data to Display",font=dict(family="sans serif",size=25,color="crimson"),showarrow=False,yshift=10)
         fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
-            paper_bgcolor= 'rgba(0, 0, 0, 0)',
-            title = {'text':'Producción de Petróleo','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
-            xaxis_title = 'Meses',
-            yaxis_title = 'Acumulada Petróleo [m3]'
-        )
+            paper_bgcolor= 'rgba(0, 0, 0, 0)')
+        return fig        
+    # Si esta seleccionado 'todos' en los checklist
+    elif 'todos' in graph_config:
+        #dff = pd.DataFrame.from_dict(data_sub_tipo)
+        #dff = dff[dff['empresa'] == selected_company]
+        #dff_oil = dff[dff['tipopozo'] == 'Petrolífero']
+        #oil_wells = dff_oil['sigla'].unique()
+        #oil_prod = produ[produ['sigla'].isin(oil_wells)]
+        oil_prod = oil_prod[oil_prod['empresa'] == selected_company]
+        if 'trayectoria' in graph_config:
+            fig = px.line(oil_prod, x="meses_prod", y="net_oil_prod",color='trayectoria',line_group='sigla',color_discrete_map=colores_trayectoria(dff))
+            fig.update_layout(
+                template='plotly_dark',
+                plot_bgcolor= 'rgba(0, 0, 0, 0)',
+                paper_bgcolor= 'rgba(0, 0, 0, 0)',
+                title = {'text':'Producción de Petróleo','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                xaxis_title = 'Meses',
+                yaxis_title = 'Acumulada Petróleo [m3]',
+            )
+            return fig
+        else:
+            
+            fig = px.line(oil_prod, x="meses_prod", y="net_oil_prod",color='sigla',title='Net Oil Production')
+            fig.update_layout(
+                template='plotly_dark',
+                plot_bgcolor= 'rgba(0, 0, 0, 0)',
+                paper_bgcolor= 'rgba(0, 0, 0, 0)',
+                title = {'text':'Producción de Petróleo','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                xaxis_title = 'Meses',
+                yaxis_title = 'Acumulada Petróleo [m3]'
+            )
         return  fig
     
+    # Esto es porque si nunca seleccioné un pozo, well selected es None. Si selecciono uno y después lo elimino, well_selected es una lista vacia 
+    # Deuvelvo un mensaje que no hay data seleccionada
+    elif ((not graph_config and well_selected is None) | (not graph_config and not well_selected)) :
+        fig = go.Figure().add_annotation(x=2, y=2,text="No Data to Display",font=dict(family="sans serif",size=25,color="crimson"),showarrow=False,yshift=10)
+        fig.update_layout(
+            template='plotly_dark',
+            plot_bgcolor= 'rgba(0, 0, 0, 0)',
+            paper_bgcolor= 'rgba(0, 0, 0, 0)')
+        return fig
+    
     else:
-        dff = oil_prod.copy()
-        dff = dff[dff['sigla'].isin(well_selected)]
-        fig = px.line(dff, x="meses_prod", y="net_oil_prod",color='sigla')
+        #dff = pd.DataFrame.from_dict(data_sub_tipo)
+        #dff = dff[dff['empresa'] == selected_company]
+        #dff_oil = dff[dff['tipopozo'] == 'Petrolífero']
+        #oil_wells = dff_oil['sigla'].unique()
+        #oil_prod = produ[produ['sigla'].isin(oil_wells)]
+        oil_prod = oil_prod[oil_prod['sigla'].isin(well_selected)]
+        fig = px.line(oil_prod, x="meses_prod", y="net_oil_prod",color='sigla')
         fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
@@ -471,36 +564,80 @@ def well_prod(well_selected,graph_config,selected_company):
 # Gas Production graph
 @app.callback(
     Output('gas_prod','figure'),
-    [Input('slct_gas_well','value'),
+    [Input('slct_gas_well','options'),
+    Input('memory_recurso','data'),
+    Input('slct_gas_well','value'),
     Input('gas_graph_config','value'),
     Input('slct_empresa','value')]
 )
 
-def gas_well_prod(well_selected,graph_config,selected_company):
+def gas_well_prod(gas_dropdown_options,data_sub_tipo,well_selected,graph_config,selected_company):
+    dff = pd.DataFrame.from_dict(data_sub_tipo)
+    dff = dff[dff['empresa'] == selected_company]
+    dff_gas = dff[dff['tipopozo'] == 'Gasífero']
+    gas_wells = dff_gas['sigla'].unique()
+    gas_prod = produ[produ['sigla'].isin(gas_wells)]    
+    
+    if not gas_dropdown_options:
+        fig = go.Figure().add_annotation(x=2, y=2,text="No Data to Display",font=dict(family="sans serif",size=25,color="crimson"),showarrow=False,yshift=10)
+        fig.update_layout(
+            template='plotly_dark',
+            plot_bgcolor= 'rgba(0, 0, 0, 0)',
+            paper_bgcolor= 'rgba(0, 0, 0, 0)')
+        return fig    
+    
     if 'todos' in graph_config:
-        dff = gas_prod.copy()
-        dff = dff[dff['empresa'] == selected_company]
-        fig = px.line(dff, x="meses_prod", y="net_gas_prod",color='sigla',title='Net Gas Production')
+        #dff = pd.DataFrame.from_dict(data_sub_tipo)
+        #dff = dff[dff['empresa'] == selected_company]
+        #dff_gas = dff[dff['tipopozo'] == 'Gasífero']
+        #gas_wells = dff_gas['sigla'].unique()
+        #gas_prod = produ[produ['sigla'].isin(gas_wells)]
+        
+        gas_prod = gas_prod[gas_prod['empresa'] == selected_company]
+        if 'trayectoria' in graph_config:
+            fig = px.line(gas_prod, x="meses_prod", y="net_gas_prod",color='trayectoria',line_group='sigla',color_discrete_map=colores_trayectoria(dff))
+            fig.update_layout(
+                template='plotly_dark',
+                plot_bgcolor= 'rgba(0, 0, 0, 0)',
+                paper_bgcolor= 'rgba(0, 0, 0, 0)',
+                title = {'text':'Producción de Gas','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                xaxis_title = 'Meses',
+                yaxis_title = 'Acumulada Gas [km3]',
+            )
+            return fig
+        else:
+            fig = px.line(gas_prod, x="meses_prod", y="net_gas_prod",color='sigla',title='Net Gas Production')
+            fig.update_layout(
+                template='plotly_dark',
+                plot_bgcolor= 'rgba(0, 0, 0, 0)',
+                paper_bgcolor= 'rgba(0, 0, 0, 0)',
+                title = {'text':'Producción de Gas','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
+                xaxis_title = 'Meses',
+                yaxis_title = 'Acumulada Gas [km3]'
+            )
+            return  fig
+    elif ((not graph_config and well_selected is None) | (not graph_config and not well_selected)) :
+        fig = go.Figure().add_annotation(x=2, y=2,text="No Data to Display",font=dict(family="sans serif",size=25,color="crimson"),showarrow=False,yshift=10)
         fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
-            paper_bgcolor= 'rgba(0, 0, 0, 0)',
-            title = {'text':'Producción de Gas','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
-            xaxis_title = 'Meses',
-            yaxis_title = 'Acumulada Gas [m3?]'
-        )
-        return  fig
+            paper_bgcolor= 'rgba(0, 0, 0, 0)')
+        return fig
     else:
-        dff = gas_prod.copy()
-        dff = dff[dff['sigla'].isin(well_selected)]
-        fig = px.line(dff, x="meses_prod", y="net_gas_prod",color='sigla', title='Net Gas Production')
+        #dff = pd.DataFrame.from_dict(data_sub_tipo)
+        #dff = dff[dff['empresa'] == selected_company]
+        #dff_gas = dff[dff['tipopozo'] == 'Gasífero']
+        #gas_wells = dff_gas['sigla'].unique()
+        #gas_prod = produ[produ['sigla'].isin(gas_wells)]        
+        gas_prod = gas_prod[gas_prod['sigla'].isin(well_selected)]
+        fig = px.line(gas_prod, x="meses_prod", y="net_gas_prod",color='sigla', title='Net Gas Production')
         fig.update_layout(
             template='plotly_dark',
             plot_bgcolor= 'rgba(0, 0, 0, 0)',
             paper_bgcolor= 'rgba(0, 0, 0, 0)',
             title = {'text':'Producción de Gas','y':0.9,'x':0.5,'xanchor': 'center','yanchor': 'top'},
             xaxis_title = 'Meses',
-            yaxis_title = 'Acumulada Gas [m3?]'
+            yaxis_title = 'Acumulada Gas [km3]'
         )
         return fig
 
